@@ -1,0 +1,535 @@
+Bài toán: Mô phỏng hệ thống giám sát cho doanh nghiệp gồm các phòng ban có sử dụng máy tính và server phục vụ cho công việc văn phòng.
+Yêu cầu cài đặt 1 server giám sát tự động các máy tính, server. Khi gặp sự cố sẽ tự động báo về trên monitor cho quản trị viên
+Các thành phần của hệ thống mô phỏng:
+1 máy NagiosServer: 192.168.56.23/24
+1 máy tượng trưng cho client linux: 192.168.56.25/24
+LƯU Ý : Đây chỉ là mô hình triển khai thử nghiệm
+⦁	Các bước triển khai
+4.1 Cài đặt và cấu hình Nagios Server
+
+	Bước 1:  Cập nhật các gói hệ thống
+	Trước khi tiến hành cài đặt, việc cập nhật các gói hệ thống để đảm bảo bạn có phiên bản phần mềm mới nhất là điều cần thiết. Mở một thiết bị đầu cuối và chạy các dòng mã sau:
+ 
+	# sudo apt update && sudo apt upgrade -y
+
+ 
+
+	Bước 2: Cài đặt Các Packages Nagios Core
+Bây giờ cài đặt các gói cần thiết bằng APT:
+# sudo apt install build-essential libgd-dev openssl libssl-dev apache2 php libapache2-mod-php snmp libnet-snmp-perl gettext libmcrypt-dev libssl-dev unzip
+	Bước 3: Download Nagios và Giải nén
+Chúng ta sẽ tiến hành Download Nagios và Giải nén.  tạo thư mục chứa source Download Nagios với tên “nagioscore”
+# wget https://github.com/NagiosEnterprises/nagioscore/releases/download/nagios-4.5.6/nagios-4.5.6.tar.gz
+# sudo tar -xf nagios-4.5.6.tar.gz
+	Bước 4: Biên dịch và cài đặt Nagios Core
+⦁	Sau khi giải nén hoàn tất, chúng ta sẽ thấy thư mục nagios-4.4.6/. chúng ta CD vào thư mục nagios-4.4.6
+
+# cd nagios-4.5.6/
+⦁	Thực hiện chạy lệnh sau để biên dịch mã nguồn Nagios và cài đặt.
+⦁	Chuẩn bị cấu hình cho quá trình biên dịch, đặt cấu hình để Apache có thể hiểu và tích hợp Nagios. Tùy chọn --with-httpd-conf chỉ định nơi lưu trữ các tệp cấu hình của Apache:
+	#./configure --with-httpd-conf=/etc/apache2/sites-enabled 
+⦁	Biên dịch mã nguồn của Nagios và các thành phần kèm theo.
+	# sudo make all
+⦁	Cài đặt Nagios lên hệ thống.
+	# sudo make install
+⦁	Cài đặt tệp tin init để quản lý dịch vụ Nagios khi hệ thống khởi động.
+# sudo make install-init
+⦁	Cài đặt các tệp cấu hình mặc định cho Nagios.
+# sudo make install-config
+⦁	Cài đặt chế độ thực thi cho các tệp lệnh của Nagios.
+# sudo make install-commandmode
+⦁	Cài đặt cấu hình Apache để có thể truy cập giao diện web Nagios.
+# sudo make install-webconf
+⦁	enable nagios: systemctl enable nagios
+⦁	Cuối cùng tạo User admin and client login nagios:  nagiosadmin
+	# sudo htpasswd -c /usr/local/nagios/etc/htpasswd.users nagiosadmin
+(Password:123456)
+	# htpasswd -c /usr/local/nagios/etc/htpasswd.users client
+   
+
+
+	Bước 5: Cài đặt và cấu hình Plugin Nagios và Plugin NRPE
+⦁	Để mở rộng khả năng giám sát của Nagios, chúng ta cần cài đặt Nagios Plugins và NRPE Plugin. Plugin Nagios cung cấp các plugin dựng sẵn để kiểm tra trạng thái và số liệu của máy chủ, dịch vụ và ứng dụng. Plugin NRPE cho phép Nagios truy cập và thực thi các plugin từ xa trên máy chủ.
+⦁	Việc cài đặt và định cấu hình Nagios Plugins và NRPE Plugins sẽ cho phép chúng tôi tối đa hóa khả năng giám sát của Nagios và mở rộng việc giám sát tài nguyên cũng như thông tin từ các máy chủ khác trong mạng.
+⦁	Tiếp tục với Bước 5, chúng ta sẽ tiến hành cài đặt, cấu hình Nagios Plugins và NRPE Plugin để đảm bảo Nagios hoạt động đầy đủ và hiệu quả.	
+⦁	Cài đặt Nagios Plugins và NRPE Plugins
+⦁	Plugin
+		# wget https://github.com/nagios-plugins/nagios-plugins/releases/download/release-2.4.12/nagios-plugins-2.4.12.tar.gz
+     		#sudo tar -xf nagios-plugins-2.4.12.tar.gz 
+     		#cd nagios-plugins-2.4.12/
+    		#./configure
+     		#sudo make install
+   		#systemctl start nagios
+⦁	NRPE
+		# wget https://github.com/NagiosEnterprises/nrpe/releases/download/nrpe-4.1.1/nrpe-4.1.1.tar.gz
+   		# sudo tar -xf nrpe-4.1.1.tar.gz 
+   		# cd nrpe-4.1.1/
+   		#./configure
+   		# sudo make check_nrpe 
+   		# sudo make install-plugin 
+⦁	Thêm check_nrpe vào commands.cfg
+	# nano /usr/local/nagios/etc/objects/commands.cfg 
+⦁	Thêm vào cuối file:  
+define command {
+        command_name check_nrpe
+        command_line $USER1$/check_nrpe -H $HOSTADDRESS$ -c $ARG1$
+}
+	Bước 6: Mở port trên Firewall
+# sudo ufw enable
+# sudo ufw allow 80
+# sudo ufw allow 443
+# sudo ufw allow 22
+# sudo ufw allow 5666
+# sudo ufw 5666/tcp
+# sudo ufw reload
+# sudo ufw status 
+4.2. Cài đặt và cấu hình Nagios Client
+
+Trong máy client cần giám sát cũng phải cài các gói NRPE và Plugin để chúng có thể gửi các thông tin của máy cho Server giám sát 
+  
+	Bước 1: Cài các gói cần thiết 
+	# sudo su -
+	# sudo apt install -y autoconf automake gcc libc6 libmcrypt-dev make libssl-dev unzip
+	Bước 2: Cài NRPE và Plugin
+	# useradd nagios
+⦁	Cài NRPE:
+	# cd
+	wget https://github.com/NagiosEnterprises/nrpe/releases/download/nrpe-4.1.1/nrpe-4.1.1.tar.gz
+# sudo tar -xf nrpe-4.1.1.tar.gz nrpe-4.1.1/
+	# cd nrpe-4.1.1/
+#./configure
+# sudo make all
+# sudo make install
+	# sudo make install-config
+	# sudo make install-init
+ 
+⦁	Cài Plugin:
+	# cd
+	wget https://github.com/nagios-plugins/nagios-plugins/releases/download/release-2.3.3/nagios-plugins-2.3.3.tar.gz
+#sudo tar -xf nagios-plugins-2.3.3.tar.gz
+	# cd nagios-plugins-2.3.3/
+	#./configure
+	# sudo make install
+Ta có thể kiểm tra nếu plugin đã hoạt dộng bằng lệnh:
+	# cd /usr/local/nagios/libexec
+ 
+	Bước 3: Sửa file NRPE
+	# nano /usr/local/nagios/etc/nrpe.cfg
+	allowed_hosts=127.0.0.1,192.168.56.23 -> ip server
+ 	server_address=0.0.0.0
+  
+ 
+	Bước 4: Restart lại các service đã cài
+	# systemctl enable nrpe
+ # systemctl start nrpe
+	# systemctl restart nrpe
+	# systemctl status nrpe
+  
+ 
+	Bước 5: Mở port trên Firewall
+# sudo ufw enable
+# sudo ufw allow 80
+# sudo ufw allow 443
+# sudo ufw allow 22
+# sudo ufw allow 5666
+# sudo ufw 5666/tcp
+# sudo ufw allow from 192.168.56.25 to any port 5666 proto tcp
+# sudo ufw reload
+# sudo ufw status
+4.2.1. Thêm các dịch vụ giám sát trên NagiosServer
+	Bước 1: Chúng ta sẽ kiểm tra kết nối tới nrpe trong máy khách từ máy chủ nagios
+	# /usr/local/nagios/libexec/check_nrpe -H "192.168.56.22"
+  
+Nếu có lỗi nghĩa là firewall của client không cho qua cổng 5666 tcp
+ 
+	Bước 2: Tạo và sửa file cấu hình của client
+	# nano /usr/local/nagios/etc/objects/client.cfg
+Sửa như sau : 
+⦁	Thêm host:
+define host {
+        use		linux-server
+        host_name	client
+        alias		nagios-client
+        address              192.168.56.25
+        }
+⦁	Thêm các service
+⦁	Các service có sẵn 
+⦁	Check cpu load kiểm tra tốc độ load của CPU:
+define service {
+        use				generic-service
+        host_name			client
+        service_description		CPU load
+        check_command                  check_nrpe!check_load
+}
+⦁	Check zombie kiểm tra những tiến trình đã hoàn thành công việc nhưng vẫn còn tồn tại trong bảng tiến trình:
+define service {
+        use                                    generic-service
+        host_name                         client
+        service_description            Zombie Processes
+        check_command                check_nrpe!check_zombie_procs
+}
+⦁	Check total proccess Kiểm tra tổng số tiến trình đang chạy trên hệ thống: 
+define service {
+        use				generic-service
+        host_name 			client
+        service_description	Total Processes
+        check_command                   check_nrpe!check_total_procs
+}
+⦁	Check Disk Kiểm tra dung lượng còn của đĩa
+define service {
+        use				generic-service
+        host_name 			client
+        service_description 	Disk
+        check_command               check_nrpe!check_disk
+}
+⦁	Để check_disk cần phải sửa file nrpe.cfg trên máy Client:
+   
+⦁	Check swap usage: 
+	define service {
+    use                     		generic-service
+    host_name               	client
+    service_description     	Swap Usage
+    check_command           	check_nrpe!check_swap
+  }
+⦁	Để check_SwapUsage cần phải sửa file nrpe.cfg trên máy Client:
+  
+⦁	Các service không có sẵn:
+⦁	Check CPU stats Kiểm tra mức sử dụng CPU:
+Do check_cpu_stats đã được viết lại và chưa được cập nhật trong nrpe nên ta phải thêm các bước:
+define service {
+        use                            	 	generic-service
+        host_name                       	client
+        service_description             	CPU Usage
+        check_command                   check_nrpe!check_cpu_stats 
+}
+⦁	Thêm 1 function trong tệp libexec của nrpe client:
+	# nano /usr/local/nagios/libexec/check_cpu_stats.sh
+Sửa như sau: 
+#!/bin/bash
+# Mặc định cho ngưỡng cảnh báo và lỗi
+WARNING=75
+CRITICAL=90
+⦁	Kiểm tra các tham số đầu vào:
+while getopts "w:c:" opt; do
+    case ${opt} in
+        w)
+            WARNING=$OPTARG
+            ;;
+        c)
+            CRITICAL=$OPTARG
+            ;;
+        *)
+            echo "Usage: $0 -w <warning threshold> -c <critical threshold>"
+            exit 3
+            ;;
+    esac
+done
+⦁	Lấy thông tin sử dụng CPU:
+USAGE=$(mpstat | awk '$12 ~ /[0-9.]+/ { print 100 - $12 }')
+⦁	So sánh và xuất kết quả:
+if (( $(echo "$USAGE > $CRITICAL" | bc -l) )); then
+    echo "CRITICAL - CPU usage is at ${USAGE}%"
+    exit 2
+elif (( $(echo "$USAGE > $WARNING" | bc -l) )); then
+    echo "WARNING - CPU usage is at ${USAGE}%"
+    exit 1
+else
+    echo "OK - CPU usage is at ${USAGE}%"
+    exit 0
+fi
+  
+⦁	Cấp quyền thực thi cho file:
+# sudo chmod +x /usr/local/nagios/libexec/check_cpu_stats.sh
+⦁	Check memory Kiểm tra bộ nhớ: 
+Cũng giống như check cpu , check mem cũng chưa được cập nhật trong NRPE nên chúng ta sẽ viết lại cho nó:
+define service {
+    use                     		generic-service
+    host_name 			client
+    service_description     	Memory Usage
+    check_command          	 check_nrpe!check_mem
+}
+⦁	Thêm 1 function trong tệp libexec của nrpe client:
+	# nano /usr/local/nagios/libexec/check_mem.sh
+Sửa như sau: 
+#!/bin/bash 
+TOTAL=$(free | grep Mem | awk '{print $2}')
+USED=$(free | grep Mem | awk '{print $3}')
+PERCENT=$(echo "scale=2; $USED / $TOTAL * 100" | bc)
+if (( $(echo "$PERCENT > 90" | bc -l) )); then
+    echo "CRITICAL - Memory usage is at ${PERCENT}%"
+    exit 2
+elif (( $(echo "$PERCENT > 80" | bc -l) )); then
+    echo "WARNING - Memory usage is at ${PERCENT}%"
+    exit 1
+else
+    echo "OK - Memory usage is at ${PERCENT}%"
+    exit 0
+fi
+  
+⦁	Cấp quyền thực thi cho file:
+	# sudo chmod +x /usr/local/nagios/libexec/check_mem.sh
+	Sau đó sửa file command.cfg:
+  
+ 
+⦁	Check mức sử dụng mạng:
+define service {
+    use                 		generic-service
+    host_name           		client
+    service_description 	Network Usage
+    check_command       	check_nrpe!check_netstat
+}
+⦁	Thêm 1 function trong tệp libexec của nrpe client
+	# nano /usr/local/nagios/libexec/check_netstat.sh 
+Sửa như sau: 
+#!/bin/bash
+THRESHOLD=80
+USAGE=$(ifstat -S -n 1 1 | tail -n 1 | awk '{print $1}')
+if (( $(echo "$USAGE > $THRESHOLD" | bc -l) )); then
+    echo "CRITICAL: Network usage is at $USAGE%"
+    exit 2
+else
+    echo "OK: Network usage is at $USAGE%"
+    exit 0
+fi
+  
+⦁	Thêm command:
+  
+⦁	Thêm quyền thực thi: 
+#chmod +x /usr/local/nagios/libexec/check_netstat.sh
+⦁	Check user logged_in 
+define service {
+    use                	    generic-service
+    host_name           	    client
+    service_description   Logged In Users
+    check_command       check_nrpe!check_logged_in_users
+}
+⦁	Sửa NRPE trên máy Client: 
+  
+⦁	Thêm 1 function trong tệp libexec của nrpe client:
+# nano /usr/local/nagios/libexec/check_logged_in_users.sh
+Sửa như sau: 
+#!/bin/bash
+# Lấy danh sách người dùng đang đăng nhập
+LOGGED_IN_USERS=$(who | awk '{print $1}' | sort | uniq | tr '\n' ', ' | sed 's/, $//')
+if [ -z "$LOGGED_IN_USERS" ]; then
+    echo "OK: No users logged in"
+    exit 0
+else
+    echo "Users currently logged in: $LOGGED_IN_USERS"
+    exit 0
+fi
+  
+⦁	Thêm quyền thực thi:
+#chmod +x /usr/local/nagios/libexec/check_logged_in_users.sh
+⦁	Sau đó lưu lại và restart lại Nagios và NRPE
+⦁	Trên Nagios Server:
+# systemctl restart nagios
+	# service nagios start
+	# service nagios restart
+	# service nagios status
+  
+ 
+Để chắc ăn hãy kiểm tra lại tường lửa:
+	# sudo ufw status	
+   
+⦁	Trên máy client: restart lại các lệnh
+		# systemctl restart nrpe
+		# sudo systemctl status nrpe
+  
+ 
+ 
+Sau đó vào lại web trên máy Server:
+	Truy cập http://192.168.56.23/nagios 
+	Đăng nhập: Nagiosadmin 123456
+  
+4.3. Cài đặt pnp4nagios trên nagiosserver
+	Bước 1: cài các gói cần thiết 
+# apt-get update 
+# apt install rrdtool librrds-perl
+Nếu bạn gặp lỗi gì đó liên quan đến 6.8.0-45 bạn có thể xóa nó đi:
+# rm -f /boot/vmlinuz-6.8.0-45-generic 
+# rm -f /boot/System.map-6.8.0-45-generic 
+# rm -f /boot/config-6.8.0-45-generic 
+	Bước 2: Tải pnp4nagios và cấu hình
+# wget https://versaweb.dl.sourceforge.net/project/pnp4nagios/PNP-0.6/pnp4nagios-0.6.26.tar.gz
+# sudo tar -xvf pnp4nagios-0.6.26.tar.gz && cd pnp4nagios-0.6.26
+#./configure --with-command-user=nagios --with-command-group=nagcmd --with-httpd-conf=/etc/apache2/sites-available
+# sudo make all
+# sudo make fullinstall 
+	Bước 3: enable file cấu hình và reload dịch vụ apache2
+	# a2ensite pnp4nagios.confsystemctl reload apache2.service
+ 
+	Bước 4: sửa đổi tệp cấu hình Nagios để tích hợp Pnp4Nagios.
+⦁	Sửa file nagios.cfg:
+		# nano /usr/local/nagios/etc/nagios.cfg
+	Sửa như sau : 
+process_performance_data=1
+ 
+service_perfdata_file=/usr/local/pnp4nagios/var/service-perfdata
+service_perfdata_file_template=DATATYPE::SERVICEPERFDATA\tTIMET::$TIMET$\tHOSTNAME::$HOSTNAME$\tSERVICEDESC::$SERVICEDESC$\tSERVICEPERFDATA::$SERVICEPERFDATA$\tSERVICECHECKCOMMAND::$SERVICECHECKCOMMAND$\tHOSTSTATE::$HOSTSTATE$\tHOSTSTATETYPE::$HOSTSTATETYPE$\tSERVICESTATE::$SERVICESTATE$\tSERVICESTATETYPE::$SERVICESTATETYPE$
+service_perfdata_file_mode=a
+service_perfdata_file_processing_interval=15
+service_perfdata_file_processing_command=process-service-perfdata-file
+ 
+host_perfdata_file=/usr/local/pnp4nagios/var/host-perfdata
+host_perfdata_file_template=DATATYPE::HOSTPERFDATA\tTIMET::$TIMET$\tHOSTNAME::$HOSTNAME$\tHOSTPERFDATA::$HOSTPERFDATA$\tHOSTCHECKCOMMAND::$HOSTCHECKCOMMAND$\tHOSTSTATE::$HOSTSTATE$\tHOSTSTATETYPE::$HOSTSTATETYPE$
+host_perfdata_file_mode=a
+host_perfdata_file_processing_interval=15
+host_perfdata_file_processing_command=process-host-perfdata-file
+ 
+*chú ý* phải sửa đúng các file trong nagios.cfg
+ 
+⦁	Sửa file commands.cfg:
+	# nano /usr/local/nagios/etc/objects/commands.cfg 
+Sửa như sau:
+#define command {
+       command_name    process-service-perfdata-file
+       command_line    /bin/mv /usr/local/pnp4nagios/var/service-perfdata /usr/local/pnp4nagios/var/spool/service-perfdata.$TIMET$
+}
+ 
+# define command {
+       command_name    process-host-perfdata-file
+       command_line    /bin/mv /usr/local/pnp4nagios/var/host-perfdata /usr/local/pnp4nagios/var/spool/host-perfdata.$TIMET$
+}
+⦁	Sửa file template.cfg
+	# nano /usr/local/nagios/etc/objects/templates.cfg
+Sửa như sau:
+
+define host {
+ name host-pnp
+ action_url /pnp4nagios/index.php/graph?host=$HOSTNAME$&srv=_HOST_'class='​tips'rel='/pnp4nagios/index.php/popup?host=$HOSTNAME$&srv=_HOST_
+ register 0
+}
+define service {
+ name srv-pnp
+ action_url /pnp4nagios/index.php/graph?host=$HOSTNAME$&srv=$SERVICEDESC$'class ='tips'rel ='/pnp4nagio/index.php/popup?host=$HOSTNAME$&srv=$SERVEDESC$
+ register 0
+}
+⦁	Sửa file localhost.cfg:
+	# nano /usr/local/nagios/etc/objects/localhost.cfg
+ 
+Sửa như sau: Thêm host-pnp vào sau name host, thêm srv-pnp vào sau name service template to use
+define host {
+    use                     linux-server,host-pnp            ; 
+    host_name               localhost
+    alias                   localhost
+    address                 127.0.0.1
+}
+define service {
+    use                     local-service,srv-pnp           
+    host_name               localhost
+    service_description     SSH
+    check_command           check_ssh
+    notifications_enabled   1
+}
+ 
+⦁	Sao chép file status-header.ssi vào đường dẫn của Nagios:
+	# cp contrib/ssi/status-header.ssi /usr/local/nagios/share/ssi/
+ 
+	Bước 5: Xác thực cài đặt PNP4Nagios
+⦁	Mở đường dẫn ⦁	http://NagiosServerIP/pnp4nagios
+  
+ 
+Nếu thấy mọi thứ đều ổn như này thì có thể làm bước tiếp theo
+Fix lỗi: nếu bạn gặp các lỗi liên quan đến php version thì rất có thể lỗi đó do các tính năng cũ của file php trong pnp4nagios không còn hỗ trợ hoạt động trên version php mới của bạn nữa.
+Tôi đã gặp lỗi này php version của tôi lúc đầu là 8.1.2ubuntu2.19 sau đó tôi đã cài php version cũ để fix lỗi đó
+⦁	Cài php5.6: 
+		# sudo add-apt-repository ppa:ondrej/php
+		# sudo apt-get update
+# sudo apt-get install php5.6 php5.6-mbstring php5.6-gd php5.6-pdo php5.6-mysql
+# sudo apt-get install php5.6-xml php5.6-zip php5.6-curl
+# sudo a2dismod php8.1 (Tắt PHP 8.x nếu cần)
+# sudo a2enmod php5.6   # Bật PHP 5.6
+# sudo systemctl restart apache2
+	Bước 6: Đổi tên install.php file và Restart các services
+	# mv /usr/local/pnp4nagios/share/install.php /usr/local/pnp4nagios/share/install.php-bak
+	# sudo systemctl restart nagios
+	#sudo systemctl restart apache2
+#sudo systemctl restart npcd
+Vào lại web và ta sẽ thấy Graph của Host:
+  
+ 
+ 
+4.4. Triển khai Giám sát 
+	1.Nagios Server:
+Các dịch vụ đã triển khai thử nghiệm trên máy sử dụng hệ điều hành linux là tình trạng lượt tải, giám sát tổng số quá trình đang chạy, số người dùng hiện thời đang sử dụng các dịch vụ đang chạy.
+  
+  
+Từ hình trên ta có thể thấy máy localhost hoạt động rất ổn định không bị DOWN lúc nào từ khi bật máy
+ 
+3.1 Một số dịch vụ trên máy 
+⦁	Dịch vụ Ping 
+  
+Đây là số liệu ghi lại dịch vụ Ping từ 2h5m thứ 3 15/10/2024 đến 3h32m cùng ngày 
+  
+Qua biểu đồ này giúp chúng ta biết được mạng không bị xâm nhập và các gói được trả lại cho người gửi một cách an toàn . Tất cả mọi thứ hiện tại vẫn đang trong tình trạng được kiểm soát.
+ 
+⦁	Dịch vụ HTTP (web):
+  
+Số liệu và biểu đồ cho thấy dịch vụ HTTP luôn ổn định
+  
+Biểu đồ cho thấy có bất thường cao nhất lúc 06:40 và 1 vài thời gian khác nhưng nhìn chung thì có ổn định
+ 
+⦁	Dịch vụ SSH:
+Ở phần này ta sẽ test dịch vụ SSH thay đổi trạng thái
+  
+Ở hình này có thể thấy dịch vụ ssh đang hoạt động ổn định từ 1h36 đến 7h36 cùng ngày. Bây giờ chúng ta sẽ thực hiện can thiệp ssh bằng lệnh:"service ssh stop" lúc 9h14 để dừng dịch vụ lại.
+ 
+  
+  
+Như vậy khi dịch vụ SSH dừng hệ thống sẽ cảnh báo đỏ critical cho chúng ta.
+2. Client Linux:
+  
+Các dịch vụ đã triển khai thử nghiệm trên máy Client linux là: CPU usage, CPU load, kiểm tra dung lượng ổ đĩa, kiểm tra dung luợng memory (RAM), kiểm tra đường truyền mạng, kiểm tra các tiến trình đang chạy, kiểm tra tiến trình zombie, kiểm tra swap bộ nhớ ảo, kiểm tra số lượng user, xem user logged in. 
+⦁	Kiểm tra sử dụng CPU của Client:
+  
+Như hình trên có thể thấy tình trạng sử dụng của CPU luôn ổn định chạy ở 17.48%
+⦁	Kiểm tra độ load của CPU:
+  
+Có thể thấy độ load của CPU cảnh báo Warning có thể do khoảng thời gian đó phải chạy nhiều các tiến trình 
+  
+Để 1 lúc sau thì load của cpu đã giảm xuống dưới vạch cảnh báo và cho thấy sự ổn định .
+⦁	Kiểm tra tổng các tiến trình đang chạy và tiến trình zombie:
+  
+Tổng các tiến trình trong mức cho phép nên không có cảnh báo nếu di chuột vào sẽ thấy tổng 126 proc
+  
+Có thể thấy gần đạt mức cảnh báo đây là lý do khiến CPU load không ổn định.
+⦁	Tiến trình Zombie:
+  
+không ghi nhận bất cứ tiến trình zombie nào.
+ 
+⦁	Kiểm tra dung lượng ổ cứng Disk, RAM, Swap Disk:
+  
+Trạng thái hoạt động ổn định
+  
+Dung lượng trong Disk còn nhiều 
+
+⦁	RAM:
+  
+RAM hoạt động ổn định
+  
+Mở bảng trạng thái có thể thấy dung lượng đã dùng RAM là 20% 
+ 
+⦁	Swap usage:
+  
+Trạng thái hoạt động ổn định
+  
+Dung lượng swap còn nhiều 
+⦁	Kiểm tra số lượng users và user logged in
+  
+  
+Trạng thái hoạt động ổn định và đã có 3 users đang hoạt động
+Ở đây tôi có cài thêm 1 service giúp xem tên người dùng đang đăng nhập trên máy client này. Service đó tên Logged_in_user
+  
+  
+Status service này cho thấy người dùng đang đăng nhập tên là osboxes 
+⦁	Kiểm tra Network:
+  
+Dịch vụ Network hoạt động ổn định do chưa có kết nối nào được thành lập
+
+⦁	Thử nghiệm máy Client bị Shutdown:
+ 
+
+Như vậy hệ thống đã phát hiện máy Client DOWN và cảnh báo cho chúng ta. 
+Vì host dã DOWN nên các dịch vụ giám sát  trên máy Client cũng bị DOWN toàn bộ.
+
